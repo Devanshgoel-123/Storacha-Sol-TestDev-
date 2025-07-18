@@ -9,8 +9,13 @@ import {
   Signer,
   Capabilities,
 } from "@web3-storage/w3up-client/principal/ed25519";
-import { success } from "zod";
 
+/**
+ * Function to create UCAN delegation to grant access of a space to an agent
+ * @param req
+ * @param res
+ * @returns
+ */
 export const createUCANDelegation = async (req: Request, res: Response) => {
   try {
     const {
