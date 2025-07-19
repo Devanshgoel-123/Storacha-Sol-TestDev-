@@ -9,6 +9,8 @@ import {
   Signer,
   Capabilities,
 } from "@web3-storage/w3up-client/principal/ed25519";
+import { depositAccount } from "../db/schema";
+import { db } from "../db/db";
 
 /**
  * Function to create UCAN delegation to grant access of a space to an agent
@@ -72,11 +74,11 @@ export const createUCANDelegation = async (req: Request, res: Response) => {
  */
 export const uploadFile = async (req: Request, res: Response) => {
   try {
-    const { file, proof, storachaKey } = req.body;
+    const { file, proof, storachaKey, publicKey, duration } = req.body;
     const files = [new File([file], file.name, { type: file.type })];
     const client = await initStorachaClient(storachaKey, proof);
     const cid = await client.uploadDirectory(files);
-    return {
+    const uploadObject = {
       cid: cid.toString(),
       filename: file.name,
       size: file.size,
@@ -84,6 +86,24 @@ export const uploadFile = async (req: Request, res: Response) => {
       url: `https://w3s.link/ipfs/${cid}/${file.name}`, // direct access of file
       uploadedAt: new Date().toISOString(),
     };
+    const QuoteObject: QuoteOutput = getQuoteForFileUpload({
+      durationInUnits: duration,
+      sizeInBytes: file.size,
+    });
+    const duration_days = Math.floor(duration / 86400);
+    const depositItem: typeof depositAccount.$inferInsert = {
+      deposit_amount: QuoteObject.totalCost,
+      duration_days,
+      content_cid: cid.toString(),
+      deposit_key: publicKey,
+      deposit_slot: 1,
+      last_claimed_slot: 1,
+    };
+    await db.insert(depositAccount).values(depositItem).returning();
+    res.status(200).json({
+      message: "Successfully uploaded the object",
+      object: uploadObject,
+    });
   } catch (error: any) {
     console.error("Error uploading file to Storacha:", error);
     res.status(400).json({
